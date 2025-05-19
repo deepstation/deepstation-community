@@ -74,5 +74,7 @@ Our global focus bridges local talent with the broader AI industry, fostering ec
     """,
     "discord_server": "https://discord.gg/KvPPxFz4",
     "website": "https://gptechday.com",
-    "luma_calendar": "https://lu.ma/gptechday"
+    "luma_calendar": "https://lu.ma/gptechday",
+    "apply_to_volunteer": "email grant@gptechday.com",
+    "apply_to_speak": "email grant@gptechday.com"
 }
