@@ -12,9 +12,11 @@ from app.fixtures.community_fixtures import gptechday_community
 from pprint import pprint
 import json
 from app.library.llm_utils import call_llm
-from app.library.sms_utils import send_sms_to
 from app.pydantic_models.pydantic_index import SmsBlastRequest
+from app.tasks.sms_tasks import send_sms_to_rate_limited_task
+
 import asyncio
+
 
 async def community_support_webhook_service(request: Request):
         data = await request.form()
@@ -95,7 +97,7 @@ async def community_support_webhook_service(request: Request):
         )
 
         # Send SMS back to the user
-        send_sms_to(
+        send_sms_to_rate_limited_task.delay(
             from_number=client.ai_phone_number,
             to_number=lead.ai_phone_number,
             body=llm_response["content"]
@@ -114,8 +116,7 @@ async def sms_blast_service_batch(request: SmsBlastRequest):
     for i in range(0, len(members), batch_size):
         batch = members[i:i+batch_size]
         tasks = [
-            asyncio.create_task(sms_event_invitation_task(member, campaign, client))
-            for member in batch
+            asyncio.create_task(sms_event_invitation_task(member, campaign, client)) for member in batch
         ]
         batch_results = await asyncio.gather(*tasks)
         results.extend(batch_results)
@@ -123,7 +124,6 @@ async def sms_blast_service_batch(request: SmsBlastRequest):
         if i + batch_size < len(members):
             await asyncio.sleep(30)
     return results
-
 
 
 async def sms_blast_service_mass_batch(request: SmsBlastRequest):
@@ -199,7 +199,7 @@ async def sms_event_invitation_task(member_info:dict, campaign: Campaign, client
     )
     # Send SMS
     try:
-        send_sms_to(
+        send_sms_to_rate_limited_task.delay(
             from_number=client.ai_phone_number,
             to_number=phone_number,
             body=llm_response["content"]
