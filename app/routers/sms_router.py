@@ -5,9 +5,7 @@ from app.dependencies.auth import get_api_key
 
 sms_router = APIRouter()
 
-@sms_router.post("/api/sms/webhook", dependencies=[
-    Depends(get_api_key)
-])
+@sms_router.post("/api/sms/webhook")
 async def receive_sms(
     request: Request
 ):
@@ -17,7 +15,9 @@ async def receive_sms(
         print(f"Error processing webhook: {e}")
         return {"error": "Invalid JSON payload"}, 400
 
-@sms_router.post("/api/sms/blast")
+@sms_router.post("/api/sms/blast", dependencies=[
+    Depends(get_api_key)
+])
 async def sms_blast(request: SmsBlastRequest):
     try:
         results = await sms_blast_service_batch(request)
@@ -25,7 +25,9 @@ async def sms_blast(request: SmsBlastRequest):
     except Exception as e:
         return {"error": str(e)}, 400
     
-@sms_router.post("/api/sms/blast/whatsapp-group")
+@sms_router.post("/api/sms/blast/whatsapp-group", dependencies=[
+    Depends(get_api_key)
+])
 async def sms_blast_whatsapp_group(request: SmsBlastRequest):
     try:
         print("Request: ", request)
