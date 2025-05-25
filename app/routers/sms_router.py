@@ -4,7 +4,7 @@ from app.services.sms.community_support_services import community_support_webhoo
 
 sms_router = APIRouter()
 
-@sms_router.post("/api/sms/webhook")
+@sms_router.post("/api/sms/webhook", dependencies=[])
 async def receive_sms(
     request: Request
 ):
