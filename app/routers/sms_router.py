@@ -1,10 +1,13 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Depends
 from app.pydantic_models.pydantic_index import SmsBlastRequest
 from app.services.sms.community_support_services import community_support_webhook_service, sms_blast_service_batch, sms_blast_service_mass_batch, sms_blast_service_batch_whatsapp_group
+from app.main import get_api_key
 
 sms_router = APIRouter()
 
-@sms_router.post("/api/sms/webhook", dependencies=[])
+@sms_router.post("/api/sms/webhook", dependencies=[
+    Depends(get_api_key)
+])
 async def receive_sms(
     request: Request
 ):

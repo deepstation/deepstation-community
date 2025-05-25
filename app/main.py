@@ -16,7 +16,7 @@ from fastapi.security.api_key import APIKeyHeader
 
 API_KEY_NAME = "X-API-Key"
 API_KEY = os.getenv("DEEPSTATION_API_KEY")
-
+ENV = os.getenv("ENV")
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
 
 def get_api_key(api_key: str = Security(api_key_header)):
@@ -35,7 +35,9 @@ def get_api_key(api_key: str = Security(api_key_header)):
 
 app = FastAPI(
     title="DeepStation API",
-    dependencies=[Depends(get_api_key)]
+    docs_url=None if ENV != "dev" else "/docs",
+    redoc_url=None if ENV != "dev" else "/redoc",
+    openapi_url=None if ENV != "dev" else "/openapi.json",
 )
 
 
