@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request
 from app.pydantic_models.pydantic_index import SmsBlastRequest
-from app.services.sms.community_support_services import community_support_webhook_service, sms_blast_service_batch, sms_blast_service_mass_batch
+from app.services.sms.community_support_services import community_support_webhook_service, sms_blast_service_batch, sms_blast_service_mass_batch, sms_blast_service_batch_whatsapp_group
 
 sms_router = APIRouter()
 
@@ -18,6 +18,15 @@ async def receive_sms(
 async def sms_blast(request: SmsBlastRequest):
     try:
         results = await sms_blast_service_batch(request)
+        return {"results": results}
+    except Exception as e:
+        return {"error": str(e)}, 400
+    
+@sms_router.post("/api/sms/blast/whatsapp-group")
+async def sms_blast_whatsapp_group(request: SmsBlastRequest):
+    try:
+        print("Request: ", request)
+        results = await sms_blast_service_batch_whatsapp_group(request)
         return {"results": results}
     except Exception as e:
         return {"error": str(e)}, 400
