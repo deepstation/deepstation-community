@@ -73,6 +73,7 @@ GPTechday expands its mission globally—accelerating AI education and innovatio
 Our global focus bridges local talent with the broader AI industry, fostering economic growth and skill development across regions. With over 70 events hosted, 3,000+ community members, 100+ expert speakers, and active chapters in two countries, GPTechday is building the future of AI—together.
     """,
     "discord_server": "https://discord.gg/KvPPxFz4",
+    "whatsapp_group_chat_link": "https://chat.whatsapp.com/KpTzYzJNjVsAEFzII5ZaRN",
     "website": "https://gptechday.com",
     "luma_calendar": "https://lu.ma/gptechday",
     "apply_to_volunteer": "email grant@gptechday.com",

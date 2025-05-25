@@ -1,0 +1,57 @@
+version: "3.8"
+
+services:
+  redis:
+    image: redis:latest
+    container_name: redis-deepstation
+    volumes:
+      - deepstation:/data
+    ports:
+      - "6380:6379"
+
+  web:
+    build: .
+    container_name: deepstation-web
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8150
+    ports:
+      - "8150:8150"
+    env_file:
+      - .env.docker
+    environment:
+      REDIS_URL: "redis://redis:6379/0"
+    depends_on:
+      - redis
+    volumes:
+      - .:/usr/src/app
+  worker:
+    build: .
+    container_name: deepstation-worker
+    command:
+      - celery
+      - -A
+      - celery_src.celery_app
+      - worker
+      - --loglevel=info
+      - -O
+      - fair
+      - --concurrency=1
+      - -Q
+      - sms
+    # container_name: deepstation-worker-debug
+    # # override Celery with a simple tree dump
+    # command: >
+    #   # sh -c "ls -R /usr/src/app && sleep 3600"
+    env_file:
+      - .env.docker
+    environment:
+      PYTHONPATH: /usr/src/app
+      DATABASE_URL: ${DATABASE_URL}
+      CELERY_BROKER_URL: "redis://redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://redis:6379/0"
+    depends_on:
+      - redis
+    volumes:
+      - .:/usr/src/app
+
+volumes:
+  deepstation:
