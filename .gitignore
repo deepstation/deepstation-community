@@ -1,5 +1,4 @@
 .env
-migrations/*
 token.json
 credentials.json
 # Ignore vector databases
