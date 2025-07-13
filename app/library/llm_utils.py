@@ -7,12 +7,12 @@ API_KEY = os.getenv("OPENAI_API_KEY")
 
 aclient = AsyncOpenAI(api_key=API_KEY)
 
-async def call_llm(messages: list[dict], model: str = "gpt-4.1"):
+async def call_llm(messages: list[dict], model: str = "o4-mini"):
 
         completion = await aclient.chat.completions.create(
             model=model,
             messages=messages,
-            temperature=0.2,
+            # temperature=0.2,
             response_format={"type": "json_object"},
         )
 

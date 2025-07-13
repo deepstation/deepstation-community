@@ -17,15 +17,12 @@ class Client(Model):
     class Meta:
         table = "client"
 
-    def __str__(self):
-        return self.name
-
 class Lead(Model):
     id = fields.IntField(pk=True)
     uuid = fields.UUIDField(default=uuid.uuid4)
 
     client = fields.ForeignKeyField("models.Client", related_name="lead")
-    name = fields.CharField(max_length=255)
+    name = fields.CharField(max_length=255, null=True)
     ai_phone_number = fields.CharField(max_length=255, unique=True)
     
     created_at = fields.DatetimeField(auto_now_add=True, precision=6)
@@ -34,9 +31,6 @@ class Lead(Model):
 
     class Meta:
         table = "lead"
-
-    def __str__(self):
-        return self.name
 
 class Message(Model):
     id = fields.IntField(pk=True)

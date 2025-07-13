@@ -1,7 +1,7 @@
 from app.fixtures.bot import volunteer_bot, BotRules
+from datetime import datetime, timezone, timedelta
 
-
-def event_community_support_prompt_template(event_context: dict, lead_name: str, community_context: dict, user_message: str) -> str:
+def event_community_support_prompt_template(event_context: list[dict], lead_name: str, community_context: dict, user_message: str) -> str:
     """
     This function generates a prompt for an event community support.
     """
@@ -24,6 +24,7 @@ personality="{volunteer_bot["personality"]}"
 - {BotRules.JAILBREAK_PROTECTION_RULES}
 - You must ALWAYS respond to the "**Most Recent User Message**"
 - You communicate as per your personality, although you do not need to explicity mention your personality in your responses
+- You can give the time in the response
 
 ## Style Guidelines:
 - You take into consideration the overall conversation history when responding
@@ -42,6 +43,13 @@ personality="{volunteer_bot["personality"]}"
 - Use double linebreaks for readability between sentences ({{\n\n}})
 
 # Context
+## Today's Date
+### ISO Time
+{datetime.now(timezone.utc).isoformat()}
+
+### Miami Time
+{datetime.now(timezone(timedelta(hours=-4))).strftime("%Y-%m-%d %H:%M:%S")}
+
 ## Event Details
 {event_context}
 
