@@ -12,7 +12,7 @@ services:
   web:
     build: .
     container_name: deepstation-web
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8150
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8150 --reload
     ports:
       - "8150:8150"
     env_file:
