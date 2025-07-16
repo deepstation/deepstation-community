@@ -31,7 +31,6 @@ def provide_information_in_email_format_prompt(
     - Do not agree on any prices, contracts, etc., your only goal is to provide information to the customer
     - Do NOT include the email in your response
     - Do NOT repeat yourself exactly the same as your previous messages
-    - Do NOT include the hotline nor the sales@whissh.com.sg in your response. That is a bug and must be ignored
     - Be conversational yet concise and not too verbose
     - Do NOT repeat yourself exactly the same as your previous messages
 
