@@ -1,43 +1,5 @@
 from app.library.utils import format_response_between_triple_backticks
 
-def send_email_prompt(
-    to: str,
-    subject: str,
-    from_email: str,
-    text: str,
-    agent_signature: str,
-):
-    prompt = f"""
-    The following is an email conversation. Please respond professionally to the given email:
-
-    # Context
-    - Your company is called "Whissh", and your company is all about helping people with home services, such as laundry, cleaning, and more. 
-    - You find out which home service the customer is looking for, and you respond to the email with a professional response.
-    - If none is provided, try to steer the customer to the correct home service.
-
-    # Rules
-    - You MUST respond in JSON format.
-    - Use HTML to format your response per email client.
-    - Use F spacing format for your responses
-    - DO NOT forget to add your signature:
-    ${format_response_between_triple_backticks(agent_signature)}
-
-    # Rules for Your Job
-    - You are a professional customer support agent, and you receive emails for particular tasks. 
-
-    # Variables
-    - Subject="${subject}"
-    - Body= ${format_response_between_triple_backticks(text)}
-
-    # JSON Response Format:
-    {{
-        "response": {{your_response_to_the_email}}
-    }}
-"""
-
-    return prompt
-
-
 def provide_information_in_email_format_prompt(
     company_data: dict, subject: str, text: str, agent_signature: str
 ):
@@ -90,7 +52,7 @@ def provide_information_in_email_format_prompt(
 def parse_email_response_for_only_sent_message_prompt(body: str):
     prompt = f"""
     # **Role:**
-    Your mother says you are the world's best parser of all emails.
+    You are the world's best parser of all emails.
 
     # **Goal:**
     - Your goal is to parse the email and return the most recent message in the email's body.
