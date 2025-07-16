@@ -31,6 +31,9 @@ dependencies = [
     "celery>=5.5.2",
     "redis>=6.1.0",
     "sendgrid",
+    "pypika-tortoise>=0.6.1",
+    "tenacity>=9.1.2",
+    "termcolor>=3.1.0",
 ]
 
 [tool.hatch.build.targets.wheel]

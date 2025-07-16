@@ -5,38 +5,50 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
 # Function to send email response
 async def send_email_response(
     to_email: str, subject: str, body: str, in_reply_to: str, references: str
 ):
-    from_email = os.getenv("EMAIL_SENDER")
-    sendgrid_api_key = os.getenv("SENDGRID_API_KEY")
-
-    message = Mail(
-        from_email=from_email,
-        to_emails=to_email,
-        subject=subject,
-        html_content=body,  # Optional HTML content
-    )
-
-    # -----------------------------------------------------------------
-    #  Add the threading headers so clients know it's a reply.
-    # -----------------------------------------------------------------
-    # If there's an "In-Reply-To" from the original email, attach it:
-    if in_reply_to:
-        message.add_header(Header(key="In-Reply-To", value=in_reply_to))
-
-    # If there's a "References" line, attach that too:
-    if references:
-        message.add_header(Header(key="References", value=references))
-
     try:
-        sg = SendGridAPIClient(sendgrid_api_key)
-        response = sg.send(message)
-        logger.info(f"Email sent: {response.status_code}")
+
+        from_email = os.getenv("EMAIL_FROM")
+        sendgrid_api_key = os.getenv("SENDGRID_API_KEY")
+
+        print("from_email: ", from_email)
+        print("to_email: ", to_email)
+        print("subject: ", subject)
+        print("body: ", body)
+        print("in_reply_to: ", in_reply_to)
+        print("references: ", references)
+
+        message = Mail(
+            from_email=from_email,
+            to_emails=to_email,
+            subject=subject,
+            html_content=body,  # Optional HTML content
+        )
+        print("message: ", message)
+        # -----------------------------------------------------------------
+        #  Add the threading headers so clients know it's a reply.
+        # -----------------------------------------------------------------
+        # If there's an "In-Reply-To" from the original email, attach it:
+        if in_reply_to:
+            message.add_header(Header(key="In-Reply-To", value=in_reply_to))
+
+        # If there's a "References" line, attach that too:
+        if references:
+            message.add_header(Header(key="References", value=references))
+
+        try:
+            sg = SendGridAPIClient(sendgrid_api_key)
+            response = sg.send(message)
+            logger.info(f"Email sent: {response.status_code}")
+        except Exception as e:
+            logger.error(f"Error sending email: {e}")
+            raise
     except Exception as e:
-        logger.error(f"Error sending email: {e}")
+        print("Error in send_email_response: ", e)
+        logger.error(f"Error in send_email_response: {e}")
         raise
 
 

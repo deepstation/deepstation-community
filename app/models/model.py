@@ -74,7 +74,7 @@ class CompanyInformation(Model):
     uuid = fields.UUIDField(default=uuid.uuid4)
 
     client: fields.ForeignKeyNullableRelation = fields.ForeignKeyField(
-        "models.Clients", related_name="company_information", on_delete=fields.CASCADE
+        "models.Client", related_name="company_information", on_delete=fields.CASCADE
     )
     company_name = fields.CharField(max_length=255, null=True, default=None)
     company_document = fields.TextField(null=True, default=None)
@@ -97,6 +97,7 @@ class Conversation(Model):
     tags = fields.JSONField(null=True)
 
     email_message_id = fields.CharField(max_length=255, null=True, default=None)
+    message_type = fields.CharEnumField(enum_type=MessageType, null=True)
 
     created_at = fields.DatetimeField(auto_now_add=True, precision=6)
     updated_at = fields.DatetimeField(auto_now=True, precision=6)
@@ -104,9 +105,6 @@ class Conversation(Model):
 
     class Meta:
         table = "conversation"
-
-    def __str__(self):
-        return self.lead.name
 
 
 class Campaign(Model):

@@ -1,4 +1,4 @@
-from app.models.model import Conversation, Message
+from app.models.model import Conversation, Message, MessageType
 from typing import List, Optional
 
 class ConversationsRepository:
@@ -17,3 +17,33 @@ class ConversationsRepository:
     @staticmethod
     async def get_messages_by_conversation(conversation_id: int) -> List[Message]:
         return await Message.filter(conversation_id=conversation_id).all()
+
+    @staticmethod
+    async def create_user_message(conversation_id: str, content: str, medium_response_type: str) -> Message:
+        """Create a user message in a conversation"""
+        # Convert medium_response_type to MessageType enum
+        message_type = MessageType.EMAIL if medium_response_type == "email" else MessageType.SMS
+        
+        return await Message.create(
+            conversation_id=int(conversation_id),
+            content=content,
+            role="user",
+            message_type=message_type
+        )
+
+    @staticmethod
+    async def create_assistant_message(conversation_id: str, content: str, medium_response_type: str) -> Message:
+        try:
+            """Create an assistant message in a conversation"""
+            # Convert medium_response_type to MessageType enum
+            message_type = MessageType.EMAIL if medium_response_type == "email" else MessageType.SMS
+            
+            return await Message.create(
+                conversation_id=int(conversation_id),
+                content=content,
+                    role="assistant",
+                    message_type=message_type
+                )
+        except Exception as e:
+            print("Conversation Repository error: ", e)
+            raise

@@ -8,10 +8,9 @@ FROM python:3.11-slim
 RUN apt-get update && \
     apt-get install -y curl build-essential && \
     curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    mv /root/.local/bin/uv /usr/local/bin/uv && \
     apt-get remove -y curl build-essential && \
     rm -rf /var/lib/apt/lists/*
-
-ENV PATH="/root/.cargo/bin:$PATH"
 
 # 3. Set working directory inside the container
 #    All subsequent commands (COPY, RUN, CMD) operate relative to /usr/src/app
@@ -22,7 +21,7 @@ WORKDIR /usr/src/app
 COPY pyproject.toml uv.lock* ./
 COPY README.md ./
 # 5. Install dependencies
-RUN uv sync --frozen
+RUN uv sync
 
 # 6. Copy application code
 #    - "app/" (local folder) → "./app" in container (=> /usr/src/app/app)
