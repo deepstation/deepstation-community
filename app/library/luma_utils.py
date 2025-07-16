@@ -25,7 +25,7 @@ async def fetch_luma_events() -> list[dict]:
         response.raise_for_status()
         raw = response.json()
 
-    print("Raw: ", raw)
+    # print("Raw: ", raw)
 
     # Use the correct key for events
     events_raw = raw.get("entries") or raw.get("items") or raw.get("events") or raw.get("data") or []

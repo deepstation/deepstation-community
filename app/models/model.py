@@ -77,8 +77,8 @@ class CompanyInformation(Model):
         "models.Client", related_name="company_information", on_delete=fields.CASCADE
     )
     company_name = fields.CharField(max_length=255, null=True, default=None)
-    company_document = fields.TextField(null=True, default=None)
     about_us = fields.TextField(null=True, default=None)
+    socials = fields.JSONField(null=True, default=None)
 
     # Standard fields for all models
     created_at = fields.DatetimeField(auto_now_add=True)

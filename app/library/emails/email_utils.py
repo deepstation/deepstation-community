@@ -2,12 +2,12 @@ import os
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Header
 import logging
-
+from typing import Optional
 logger = logging.getLogger(__name__)
 
 # Function to send email response
 async def send_email_response(
-    to_email: str, subject: str, body: str, in_reply_to: str, references: str
+    to_email: str, subject: str, body: str, in_reply_to: str, references: str, cc_emails: Optional[str] = None
 ):
     try:
 
@@ -27,6 +27,10 @@ async def send_email_response(
             subject=subject,
             html_content=body,  # Optional HTML content
         )
+        
+        # Add CC if provided
+        if cc_emails:
+            message.add_cc(cc_emails)
         print("message: ", message)
         # -----------------------------------------------------------------
         #  Add the threading headers so clients know it's a reply.
@@ -59,16 +63,22 @@ def extract_email_thread_ids(headers: str) -> dict:
       - message_id
       - in_reply_to
       - references
+      - cc
 
     The function looks for lines that start with:
       - "Message-ID:"
       - "In-Reply-To:"
       - "References:"
+      - "CC:"
     and captures whatever is after the colon.
     """
     message_id = None
     in_reply_to = None
     references = None
+    original_to  = None  # New
+    cc = None
+
+    print("headers: ", headers)
 
     # Split the big headers string by newlines and iterate
     for line in headers.split("\n"):
@@ -80,9 +90,17 @@ def extract_email_thread_ids(headers: str) -> dict:
             in_reply_to = line_stripped.split(":", 1)[1].strip()
         elif line_stripped.lower().startswith("references:"):
             references = line_stripped.split(":", 1)[1].strip()
+        elif line_stripped.lower().startswith("x-gm-original-to:"):
+            original_to = line_stripped.split(":", 1)[1].strip()
+        elif line_stripped.lower().startswith("cc:"):
+            cc = line_stripped.split(":", 1)[1].strip()
 
+
+    print("cc: ", cc)
     return {
         "message_id": message_id,
         "in_reply_to": in_reply_to,
         "references": references,
+        "original_to": original_to,
+        "cc": cc,
     }
