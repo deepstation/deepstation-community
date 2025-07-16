@@ -8,11 +8,10 @@ services:
       - deepstation:/data
     ports:
       - "6380:6379"
-
   web:
     build: .
     container_name: deepstation-web
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8150
+    command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8150 --reload
     ports:
       - "8150:8150"
     env_file:
@@ -23,10 +22,13 @@ services:
       - redis
     volumes:
       - .:/usr/src/app
+      - venv_data:/usr/src/app/.venv
   worker:
     build: .
     container_name: deepstation-worker
     command:
+      - uv
+      - run
       - celery
       - -A
       - celery_src.celery_app
@@ -52,6 +54,8 @@ services:
       - redis
     volumes:
       - .:/usr/src/app
+      - venv_data:/usr/src/app/.venv
 
 volumes:
   deepstation:
+  venv_data:

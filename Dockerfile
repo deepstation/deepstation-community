@@ -3,12 +3,12 @@
 # 1. Use a slim Python base image
 FROM python:3.11-slim
 
-# 2. Install Poetry
-#    - Install build tools, download installer, symlink binary, then clean up
+# 2. Install uv
+#    - Install build tools, download installer, then clean up
 RUN apt-get update && \
     apt-get install -y curl build-essential && \
-    curl -sSL https://install.python-poetry.org | python3 - && \
-    ln -s /root/.local/bin/poetry /usr/local/bin/poetry && \
+    curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    mv /root/.local/bin/uv /usr/local/bin/uv && \
     apt-get remove -y curl build-essential && \
     rm -rf /var/lib/apt/lists/*
 
@@ -16,13 +16,12 @@ RUN apt-get update && \
 #    All subsequent commands (COPY, RUN, CMD) operate relative to /usr/src/app
 WORKDIR /usr/src/app
 
-# 4. Copy only pyproject.toml and poetry.lock for dependency resolution
+# 4. Copy only pyproject.toml and uv.lock for dependency resolution
 #    This leverages Docker layer caching: dependencies only re-install when these files change
-COPY pyproject.toml poetry.lock* ./
+COPY pyproject.toml uv.lock* ./
 COPY README.md ./
-# 5. Install dependencies without creating a virtualenv
-RUN poetry config virtualenvs.create false \
-    && poetry install --no-interaction --no-ansi --no-root
+# 5. Install dependencies
+RUN uv sync
 
 # 6. Copy application code
 #    - "app/" (local folder) → "./app" in container (=> /usr/src/app/app)
@@ -40,4 +39,4 @@ EXPOSE 8150
 
 # 7. Default command for web/API server
 #    Runs Uvicorn against the module at "app.main:app"
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8150", "--reload"]
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8150", "--reload"]

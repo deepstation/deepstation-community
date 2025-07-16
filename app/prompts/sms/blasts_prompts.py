@@ -49,7 +49,7 @@ def event_invitation_prompt_template(event_context: dict, lead_name: str, commun
         "content": str # your response to the community member 
     }}
         """
-        return prompt
+    return prompt
 
 
     def whatsapp_group_invitation_prompt_template(event_context: dict, lead_name: str, community_context: dict) -> str:
