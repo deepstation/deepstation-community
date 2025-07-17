@@ -1,11 +1,12 @@
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Header
 import logging
-from typing import Optional
+from typing import Optional, List
 from fastapi import HTTPException
 from email.utils import parseaddr
 import dotenv
 import os
+from tortoise.transactions import in_transaction
 
 dotenv.load_dotenv()
 
@@ -18,8 +19,18 @@ SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
 # Function to send email response
 async def send_email_response(
     to_email: str, subject: str, body: str, in_reply_to: str, references: str, cc_emails: Optional[str] = None
-):
+) -> str:
+    import uuid
+    import time
+    import socket
+    
     try:
+        # Generate a unique Message-ID for the outgoing email
+        timestamp = int(time.time())
+        hostname = socket.gethostname()
+        unique_id = str(uuid.uuid4())[:8]
+        message_id = f"<{unique_id}-{timestamp}@{hostname}>"
+        
         # DEBUGGING
         # print("from_email: ", EMAIL_FROM)
         # print("to_email: ", to_email)
@@ -50,6 +61,9 @@ async def send_email_response(
         # -----------------------------------------------------------------
         #  Add the threading headers so clients know it's a reply.
         # -----------------------------------------------------------------
+        # Add our generated Message-ID
+        message.add_header(Header(key="Message-ID", value=message_id))
+        
         # If there's an "In-Reply-To" from the original email, attach it:
         if in_reply_to:
             message.add_header(Header(key="In-Reply-To", value=in_reply_to))
@@ -65,6 +79,9 @@ async def send_email_response(
         except Exception as e:
             logger.error(f"Error sending email: {e}")
             raise
+        
+        # Return the message_id so it can be used for threading
+        return message_id
     except Exception as e:
         print("Error in send_email_response: ", e)
         logger.error(f"Error in send_email_response: {e}")
@@ -181,3 +198,162 @@ def extract_email_thread_ids_and_set_references_and_in_reply_to_to_message_id(he
     email_thread_ids = extract_email_thread_ids(headers_field)
     email_thread_ids = is_email_threads_ids_references_and_in_reply_to_none(email_thread_ids)
     return email_thread_ids
+
+
+async def find_or_create_conversation(
+    message_id: str,
+    in_reply_to: Optional[str],
+    references: Optional[str],
+    lead_id: int,
+    campaign_id: Optional[int] = None,
+):
+    """
+    Find or create conversation without saving the message yet.
+    This allows us to check if agent should respond before saving anything.
+    """
+    from app.models.model import Conversation, Message, MessageType
+    
+    # Parse references into a list
+    refs: List[str] = []
+    if references:
+        refs = [r.strip('<>') for r in references.split() if r.strip()]
+    
+    async with in_transaction():
+        # 1️⃣ Deduplication - check if we already stored this message
+        existing_message = await Message.filter(message_id=message_id).select_related('conversation').first()
+        if existing_message:
+            logger.info(f"Message {message_id} already exists, returning existing conversation")
+            return existing_message.conversation
+        
+        conv = None
+        
+        # 2️⃣ Try direct parent via In-Reply-To
+        if in_reply_to:
+            search_id = in_reply_to.strip('<>')
+            print(f"🔍 Searching for In-Reply-To: '{search_id}'")
+            parent_message = await Message.filter(message_id=search_id).select_related('conversation').first()
+            if parent_message:
+                conv = parent_message.conversation
+                logger.info(f"Found conversation via In-Reply-To: {in_reply_to}")
+                print(f"✅ Found parent message ID {parent_message.id} in conversation {conv.id}")
+            else:
+                print(f"❌ No parent message found for In-Reply-To: '{search_id}'")
+        
+        # 3️⃣ Fallback through References header (right to left)
+        if conv is None and refs:
+            print(f"🔍 Searching through References: {refs}")
+            for ref_id in reversed(refs):
+                search_id = ref_id.strip('<>')
+                print(f"🔍 Trying reference: '{search_id}'")
+                parent_message = await Message.filter(message_id=search_id).select_related('conversation').first()
+                if parent_message:
+                    conv = parent_message.conversation
+                    logger.info(f"Found conversation via References: {ref_id}")
+                    print(f"✅ Found parent message ID {parent_message.id} in conversation {conv.id}")
+                    break
+                else:
+                    print(f"❌ No parent message found for reference: '{search_id}'")
+        
+        # 4️⃣ Start new conversation if nothing matched
+        if conv is None:
+            conv = await Conversation.create(
+                lead_id=lead_id,
+                campaign_id=campaign_id,
+                message_type=MessageType.EMAIL,
+            )
+            logger.info(f"Created new conversation for message {message_id}")
+        
+        # Note: We don't save the message here - that happens later if agent responds
+    
+    return conv
+
+async def save_user_message(
+    conversation_id: int,
+    message_id: str,
+    in_reply_to: Optional[str],
+    references: Optional[str],
+    content: str,
+    from_addr: Optional[str] = None,
+    to_addr: Optional[str] = None,
+    subject: Optional[str] = None,
+    email_date: Optional[str] = None,
+):
+    """
+    Save a user message to the conversation.
+    """
+    from app.models.model import Message, MessageType
+    
+    # Parse references into a list
+    refs: List[str] = []
+    if references:
+        refs = [r.strip('<>') for r in references.split() if r.strip()]
+    
+    return await Message.create(
+        conversation_id=conversation_id,
+        content=content,
+        role="user",
+        message_type=MessageType.EMAIL,
+        message_id=message_id,
+        in_reply_to=in_reply_to,
+        references=refs,
+        from_addr=from_addr,
+        to_addr=to_addr,
+        subject=subject,
+        email_date=email_date,
+    )
+
+async def touch_conversation(
+    message_id: str,
+    in_reply_to: Optional[str],
+    references: Optional[str],
+    lead_id: int,
+    campaign_id: Optional[int] = None,
+    from_addr: Optional[str] = None,
+    to_addr: Optional[str] = None,
+    subject: Optional[str] = None,
+    content: Optional[str] = None,
+    email_date: Optional[str] = None,
+):
+    """
+    Robust email threading resolver that finds or creates the correct Conversation and saves the message.
+    
+    Args:
+        message_id: RFC 5322 Message-ID
+        in_reply_to: RFC 5322 In-Reply-To header
+        references: RFC 5322 References header (space-separated string)
+        lead_id: ID of the lead who sent the email
+        campaign_id: Optional campaign ID
+        from_addr: Email from address
+        to_addr: Email to address
+        subject: Email subject
+        content: Email content
+        email_date: Email date header
+    
+    Returns:
+        Conversation object the message belongs to
+    """
+    # Find or create conversation
+    conv = await find_or_create_conversation(
+        message_id=message_id,
+        in_reply_to=in_reply_to,
+        references=references,
+        lead_id=lead_id,
+        campaign_id=campaign_id,
+    )
+    
+    # Save the user message
+    await save_user_message(
+        conversation_id=conv.id,
+        message_id=message_id,
+        in_reply_to=in_reply_to,
+        references=references,
+        content=content or "",
+        from_addr=from_addr,
+        to_addr=to_addr,
+        subject=subject,
+        email_date=email_date,
+    )
+    
+    logger.info(f"Stored message {message_id} in conversation {conv.id}")
+    
+    return conv
