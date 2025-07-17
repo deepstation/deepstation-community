@@ -42,7 +42,7 @@ async def generate_ai_response(prompt: str, messages: list[dict[str, str]]) -> d
     messages.append({"role": "user", "content": prompt})
 
     # Generate an AI response
-    ai_response = await chat_completion_request(messages, model="o4-mini")
+    ai_response = await chat_completion_request(messages, model="gpt-4.1")
 
     if ai_response is None:
         raise HTTPException(status_code=500, detail="Failed to generate AI response")

@@ -40,17 +40,27 @@ async def community_support_email_service(to: str, from_email: str, subject: str
 
     allowed_recipient = handle_allowed_recipients_and_cc_emails(to, headers_field)
 
-
     client, lead, company_information, conversation, messages, conversation_repository, company_data, parsed_email_for_user_message = await get_client_lead_company_information(allowed_recipient, email_thread_ids, from_email, text)
 
+    # agent_signature = """
+    # Warm regards,
+    # <bold>Maria Agentica</bold>
+    # Community, DeepStation
 
-    agent_signature = """
-    Warm regards,
-    **Maria Agentica**
-    Community, DeepStation
+    # <a href="https://www.linkedin.com/in/grant-kurz/">LinkedIn Profile</a> | <a href="https://deepstation.ai">DeepStation.AI</a>
+    # """
 
-    [**LinkedIn Profile**](https://www.linkedin.com/in/grant-kurz/)
-    [**DeepStation.AI**](https://deepstation.ai)
+    agent_signature = f"""
+        <p>
+        Warm regards,<br>
+        <span style="font-weight: bold;">{company_data["agent_name"]}</span><br>
+        {company_data["agent_title"]}, {company_data["company_name"]}
+        </p>
+        <p>
+        <a href="https://www.linkedin.com/in/grant-kurz/" style="font-weight: bold; color: #1a0dab; text-decoration: none;">LinkedIn Profile</a>
+        &nbsp;|&nbsp;
+        <a href="https://deepstation.ai" style="font-weight: bold; color: #1a0dab; text-decoration: none;">DeepStation.AI</a>
+        </p>
     """
 
     # next events
