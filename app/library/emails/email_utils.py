@@ -1,12 +1,19 @@
-import os
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Header
 import logging
 from typing import Optional
 from fastapi import HTTPException
 from email.utils import parseaddr
+import dotenv
+import os
+
+dotenv.load_dotenv()
 
 logger = logging.getLogger(__name__)
+
+# Load environment variables at module level
+EMAIL_FROM = os.getenv("EMAIL_FROM")
+SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
 
 # Function to send email response
 async def send_email_response(
@@ -14,10 +21,7 @@ async def send_email_response(
 ):
     try:
 
-        from_email = os.getenv("EMAIL_FROM")
-        sendgrid_api_key = os.getenv("SENDGRID_API_KEY")
-
-        print("from_email: ", from_email)
+        print("from_email: ", EMAIL_FROM)
         print("to_email: ", to_email)
         print("subject: ", subject)
         print("body: ", body)
@@ -25,7 +29,7 @@ async def send_email_response(
         print("references: ", references)
 
         message = Mail(
-            from_email=from_email,
+            from_email=EMAIL_FROM,
             to_emails=to_email,
             subject=subject,
             html_content=body,  # Optional HTML content
@@ -38,7 +42,10 @@ async def send_email_response(
                 cc_list = [email.strip() for email in cc_emails.split(',')]
             else:
                 cc_list = cc_emails
-            message.cc = cc_list
+            # Remove duplicates between to and cc
+            cc_list = [email for email in cc_list if email != to_email]
+            if cc_list:  # Only add CC if there are emails left
+                message.cc = cc_list
         print("message: ", message)
         # -----------------------------------------------------------------
         #  Add the threading headers so clients know it's a reply.
@@ -52,7 +59,7 @@ async def send_email_response(
             message.add_header(Header(key="References", value=references))
 
         try:
-            sg = SendGridAPIClient(sendgrid_api_key)
+            sg = SendGridAPIClient(SENDGRID_API_KEY)
             response = sg.send(message)
             logger.info(f"Email sent: {response.status_code}")
         except Exception as e:
@@ -143,6 +150,19 @@ def handle_allowed_recipients_and_cc_emails(to: str, headers_field: str) -> str:
                 header_to = line.split(":", 1)[1].strip()
                 header_recipients = [parseaddr(addr.strip())[1].lower() for addr in header_to.split(',')]
                 for recipient in header_recipients:
+                    if recipient in ALLOWED:
+                        allowed_recipient = recipient
+                        break
+                if allowed_recipient:
+                    break
+    
+    # If still no allowed recipient found, check CC field in headers
+    if allowed_recipient is None and headers_field:
+        for line in headers_field.splitlines():
+            if line.lower().startswith("cc:"):
+                header_cc = line.split(":", 1)[1].strip()
+                cc_recipients = [parseaddr(addr.strip())[1].lower() for addr in header_cc.split(',')]
+                for recipient in cc_recipients:
                     if recipient in ALLOWED:
                         allowed_recipient = recipient
                         break

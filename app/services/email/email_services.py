@@ -7,6 +7,7 @@ from fastapi import HTTPException
 import json
 from app.prompts.emails.emails_prompt_templates import parse_email_response_for_only_sent_message_prompt
 from app.library.llms import chat_completion_request
+from pydantic import BaseModel
 
 async def process_email_for_user_message(text: str) -> str:
     
@@ -26,7 +27,7 @@ async def process_email_for_user_message(text: str) -> str:
 
     return parsed_email_for_user_message
 
-async def get_client_lead_company_information(allowed_recipient: str, email_thread_ids: dict, from_email: str, text: str) -> tuple[Client, Lead, CompanyInformation, Conversation, list[Message], ConversationsRepository, dict, str]:
+async def get_client_lead_company_information(allowed_recipient: str, email_thread_ids: dict, from_email: str, text: str) -> tuple[Client, Lead, CompanyInformation, Conversation, list[dict[str, str]], ConversationsRepository, dict, str]:
     # Get Client Information
     client = await Client.filter(ai_email=allowed_recipient).get_or_none()
 
@@ -74,6 +75,11 @@ async def get_client_lead_company_information(allowed_recipient: str, email_thre
         )
     else:
         messages = await conversation_repository.get_messages_by_conversation(conversation.id)
+        # limit to 10 messages
+        messages = messages[-10:]
+
+        # convert these to a list of dicts role and content
+        messages = [{"role": message.role, "content": message.content} for message in messages]
 
     company_data = {
         "agent_name": client.ai_bot_name,
@@ -84,7 +90,7 @@ async def get_client_lead_company_information(allowed_recipient: str, email_thre
     }
 
     parsed_email_for_user_message = await process_email_for_user_message(text)
-    
+
     ## 2. Save the parsed email as a message in the conversation
     await conversation_repository.create_user_message(
             conversation_id=str(conversation.id),
