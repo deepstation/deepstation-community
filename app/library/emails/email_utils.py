@@ -20,13 +20,13 @@ async def send_email_response(
     to_email: str, subject: str, body: str, in_reply_to: str, references: str, cc_emails: Optional[str] = None
 ):
     try:
-
-        print("from_email: ", EMAIL_FROM)
-        print("to_email: ", to_email)
-        print("subject: ", subject)
-        print("body: ", body)
-        print("in_reply_to: ", in_reply_to)
-        print("references: ", references)
+        # DEBUGGING
+        # print("from_email: ", EMAIL_FROM)
+        # print("to_email: ", to_email)
+        # print("subject: ", subject)
+        # print("body: ", body)
+        # print("in_reply_to: ", in_reply_to)
+        # print("references: ", references)
 
         message = Mail(
             from_email=EMAIL_FROM,
@@ -93,7 +93,7 @@ def extract_email_thread_ids(headers: str) -> dict:
     original_to  = None  # New
     cc = None
 
-    print("headers: ", headers)
+    # print("headers: ", headers)
 
     # Split the big headers string by newlines and iterate
     for line in headers.split("\n"):
@@ -110,8 +110,8 @@ def extract_email_thread_ids(headers: str) -> dict:
         elif line_stripped.lower().startswith("cc:"):
             cc = line_stripped.split(":", 1)[1].strip()
 
-
-    print("cc: ", cc)
+    # print("in reply to: ", in_reply_to)
+    # print("cc: ", cc)
     return {
         "message_id": message_id,
         "in_reply_to": in_reply_to,

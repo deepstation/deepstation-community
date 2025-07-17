@@ -9,7 +9,7 @@ from app.prompts.emails.emails_prompt_templates import parse_email_response_for_
 from app.library.llms import chat_completion_request
 from pydantic import BaseModel
 
-async def process_email_for_user_message(text: str) -> str:
+async def process_email_for_user_message(text: str) -> dict:
     
     # If conversation, save the sent message.
     ## 1. Parse the email and get the most recent message
@@ -19,11 +19,13 @@ async def process_email_for_user_message(text: str) -> str:
 
     parsed_email_for_user_message = await chat_completion_request(
         [{"role": "user", "content": parsed_emailfor_first_message_prompt}],
-        model="gpt-4o",
+        model="gpt-4.1",
     )
 
     if parsed_email_for_user_message is None:
         raise HTTPException(status_code=500, detail="Failed to parse email content")
+
+    parsed_email_for_user_message = json.loads(parsed_email_for_user_message)
 
     return parsed_email_for_user_message
 
@@ -57,30 +59,6 @@ async def get_client_lead_company_information(allowed_recipient: str, email_thre
     if company_information is None:
         raise HTTPException(status_code=404, detail="Company information not found")
     
-    conversation_repository = ConversationsRepository()
-
-    # Find conversation by email_message_id
-    conversation = await Conversation.filter(
-        email_message_id=email_thread_ids["message_id"]
-    ).get_or_none()
-
-    messages = []
-
-    # If conversation does not exist, create the conversation
-    if conversation is None:
-        conversation = await Conversation.create(
-            email_message_id=email_thread_ids["message_id"],
-            lead=lead,
-            message_type=MessageType.EMAIL,
-        )
-    else:
-        messages = await conversation_repository.get_messages_by_conversation(conversation.id)
-        # limit to 10 messages
-        messages = messages[-10:]
-
-        # convert these to a list of dicts role and content
-        messages = [{"role": message.role, "content": message.content} for message in messages]
-
     company_data = {
         "agent_name": client.ai_bot_name,
         "agent_title": "Community",
@@ -89,16 +67,71 @@ async def get_client_lead_company_information(allowed_recipient: str, email_thre
         "socials": json.dumps(company_information.socials),
     }
 
-    parsed_email_for_user_message = await process_email_for_user_message(text)
+    conversation_repository = ConversationsRepository()
 
-    ## 2. Save the parsed email as a message in the conversation
-    await conversation_repository.create_user_message(
+    # Find conversation by email_message_id
+    # For reply emails, use in_reply_to to find existing conversation
+    # For new threads, use message_id to check if conversation already exists
+    # search_message_id = email_thread_ids["in_reply_to"] if email_thread_ids["in_reply_to"] else email_thread_ids["message_id"]
+    
+    # TODO: This is a temporary fix as this is not scalable. We need a better way to handle threads. Open source options?
+    search_message_id = email_thread_ids["message_id"]
+    print(f"Searching for conversation using: {repr(search_message_id)}")
+    print(f"Is reply email: {email_thread_ids['in_reply_to'] is not None}")
+    
+    conversation = await Conversation.filter(
+        email_message_id=search_message_id,
+    ).get_or_none()
+
+    messages = []
+
+    print("Conversation found: ", conversation)
+    print("Current email message_id: ", email_thread_ids["message_id"])
+    print("In reply to: ", email_thread_ids["in_reply_to"])
+    
+    async def process_email_and_create_user_message(conversation: Conversation, text: str):
+        parsed_email_for_user_message = await process_email_for_user_message(text)
+
+        await conversation_repository.create_user_message(
             conversation_id=str(conversation.id),
-            content=parsed_email_for_user_message,
+            content=parsed_email_for_user_message["response"],
             medium_response_type="email",
         )
 
-    return client, lead, company_information, conversation, messages, conversation_repository, company_data, parsed_email_for_user_message
+        return parsed_email_for_user_message
+    
+    if conversation:
+        parsed_email_for_user_message = await process_email_and_create_user_message(conversation, text)
+        messages = await conversation_repository.get_messages_by_conversation(conversation.id)
+        # limit to 10 messages
+        messages = messages[-15:]
+
+        # convert these to a list of dicts role and content
+        messages = [{"role": message.role, "content": message.content} for message in messages]
+        print("Conversation Exists, retrieving messages")
+        print("Messages retrieved: ", messages)
+    # If conversation does not exist, create the conversation
+    else:
+        print("Conversation does not exist, creating conversation")
+        conversation = await Conversation.create(
+            email_message_id=email_thread_ids["message_id"],
+            lead=lead,
+            message_type=MessageType.EMAIL,
+        )
+
+        print("Conversation created: ", conversation)
+
+        parsed_email_for_user_message = await process_email_and_create_user_message(conversation, text)
+
+        messages = await conversation_repository.get_messages_by_conversation(conversation.id)
+        # limit to 10 messages
+        messages = messages[-15:]
+        # convert these to a list of dicts role and content
+        messages = [{"role": message.role, "content": message.content} for message in messages]
+
+    print("messages: ", messages)
+
+    return client, lead, company_information, conversation, messages, conversation_repository, company_data, parsed_email_for_user_message["response"]
 
 
 

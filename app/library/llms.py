@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
     retry=retry_if_exception_type(OpenAIError),  # Only retry OpenAI-related errors
 )
 async def chat_completion_request(
-    messages, tools=None, tool_choice=None, model="gpt-4o"
+    messages, tools=None, tool_choice=None, model="gpt-4.1"
 ):
     try:
         completion = await aclient.chat.completions.create(
@@ -35,8 +35,6 @@ async def chat_completion_request(
             # temperature=0.2,
             response_format={"type": "json_object"},
         )
-
-        print("completion: ", completion)
 
         ai_message_content = completion.choices[0].message.content
 
