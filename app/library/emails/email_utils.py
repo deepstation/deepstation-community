@@ -3,6 +3,9 @@ from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Header
 import logging
 from typing import Optional
+from fastapi import HTTPException
+from email.utils import parseaddr
+
 logger = logging.getLogger(__name__)
 
 # Function to send email response
@@ -30,7 +33,12 @@ async def send_email_response(
         
         # Add CC if provided
         if cc_emails:
-            message.add_cc(cc_emails)
+            # Handle multiple CC emails (comma-separated string)
+            if isinstance(cc_emails, str):
+                cc_list = [email.strip() for email in cc_emails.split(',')]
+            else:
+                cc_list = cc_emails
+            message.cc = cc_list
         print("message: ", message)
         # -----------------------------------------------------------------
         #  Add the threading headers so clients know it's a reply.
@@ -104,3 +112,52 @@ def extract_email_thread_ids(headers: str) -> dict:
         "original_to": original_to,
         "cc": cc,
     }
+
+ALLOWED = ["maria@deepstation.ai", "maria@inbound-email.deepstation.ai"]
+
+
+def is_email_threads_ids_references_and_in_reply_to_none(email_thread_ids):
+    if (
+        email_thread_ids["references"] is None
+        and email_thread_ids["in_reply_to"] is None
+    ):
+        email_thread_ids["references"] = email_thread_ids["message_id"]
+        email_thread_ids["in_reply_to"] = email_thread_ids["message_id"]
+
+    return email_thread_ids
+
+def handle_allowed_recipients_and_cc_emails(to: str, headers_field: str) -> str:
+    # Parse all recipients from the to field (handles CC scenarios)
+    to_recipients = [parseaddr(addr.strip())[1].lower() for addr in to.split(',')]
+    allowed_recipient = None
+    
+    for recipient in to_recipients:
+        if recipient in ALLOWED:
+            allowed_recipient = recipient
+            break
+    
+    # If no allowed recipient found in form data, check headers
+    if allowed_recipient is None and headers_field:
+        for line in headers_field.splitlines():
+            if line.lower().startswith("to:"):
+                header_to = line.split(":", 1)[1].strip()
+                header_recipients = [parseaddr(addr.strip())[1].lower() for addr in header_to.split(',')]
+                for recipient in header_recipients:
+                    if recipient in ALLOWED:
+                        allowed_recipient = recipient
+                        break
+                if allowed_recipient:
+                    break
+
+    if allowed_recipient is None:
+        raise HTTPException(
+            status_code=403,
+            detail="This email is not addressed to the allowed recipient.",
+        )
+    
+    return allowed_recipient
+
+def extract_email_thread_ids_and_set_references_and_in_reply_to_to_message_id(headers_field: str):
+    email_thread_ids = extract_email_thread_ids(headers_field)
+    email_thread_ids = is_email_threads_ids_references_and_in_reply_to_none(email_thread_ids)
+    return email_thread_ids

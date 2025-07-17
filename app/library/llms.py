@@ -32,7 +32,7 @@ async def chat_completion_request(
             messages=messages,
             tools=tools,
             tool_choice=tool_choice,
-            temperature=0.2,
+            # temperature=0.2,
             response_format={"type": "json_object"},
         )
 
