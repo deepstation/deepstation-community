@@ -58,6 +58,17 @@ class Message(Model):
     content = fields.TextField()
     role = fields.CharField(max_length=255)
     message_type = fields.CharEnumField(enum_type=MessageType, null=True)
+    
+    # Email threading fields (RFC 5322)
+    message_id = fields.CharField(max_length=255, null=True, unique=True)  # RFC 5322 Message-ID
+    in_reply_to = fields.CharField(max_length=255, null=True)  # RFC 5322 In-Reply-To
+    references = fields.JSONField(null=True)  # RFC 5322 References as list[str]
+    
+    # Email-specific fields
+    from_addr = fields.CharField(max_length=255, null=True)  # Email from address
+    to_addr = fields.CharField(max_length=255, null=True)  # Email to address
+    subject = fields.CharField(max_length=998, null=True)  # Email subject
+    email_date = fields.DatetimeField(null=True)  # Email date header
 
     created_at = fields.DatetimeField(auto_now_add=True, precision=6)
     updated_at = fields.DatetimeField(auto_now=True, precision=6)
