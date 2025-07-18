@@ -130,20 +130,27 @@ async def community_support_email_service(to: str, from_email: str, subject: str
     # print("about to send email response")
     ## 4. Send the response back first to get the message_id
     # Proper email etiquette: reply to sender, CC the original recipients
-    # Extract non-sender recipients from original 'to' field
-    original_recipients = [addr.strip() for addr in to.split(',') if addr.strip() != sender]
+    # Extract non-sender recipients from original 'to' field using proper email parsing
+    from email.utils import getaddresses, parseaddr
+    
+    # Parse the 'to' field properly
+    to_addresses = getaddresses([to])
+    original_recipients = [addr[1] for addr in to_addresses if addr[1] and addr[1] != parseaddr(sender)[1]]
     
     # Combine original recipients with existing CC (if any)
     combined_cc = []
     if original_recipients:
         combined_cc.extend(original_recipients)
     if email_thread_ids["cc"]:
-        existing_cc = [addr.strip() for addr in email_thread_ids["cc"].split(',')]
+        # Parse the CC field properly
+        cc_addresses = getaddresses([email_thread_ids["cc"]])
+        existing_cc = [addr[1] for addr in cc_addresses if addr[1]]
         combined_cc.extend(existing_cc)
     
     # Remove duplicates and sender from CC list
     combined_cc = list(set(combined_cc))
-    combined_cc = [addr for addr in combined_cc if addr != sender]
+    sender_email = parseaddr(sender)[1]  # Extract just the email address from sender
+    combined_cc = [addr for addr in combined_cc if addr != sender_email]
     
     final_cc = ','.join(combined_cc) if combined_cc else None
     

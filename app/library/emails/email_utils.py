@@ -67,8 +67,12 @@ async def send_email_response(
             print(f"🔍 DEBUG: Processing CC emails: {cc_emails} (type: {type(cc_emails)})")
             # Handle multiple CC emails (comma-separated string)
             if isinstance(cc_emails, str):
-                cc_list = [email.strip() for email in cc_emails.split(',')]
-                print(f"🔍 DEBUG: CC list from string: {cc_list}")
+                # Use email.utils.getaddresses to properly parse email addresses
+                from email.utils import getaddresses
+                # Parse the CC string into proper email addresses
+                parsed_addresses = getaddresses([cc_emails])
+                cc_list = [addr[1] for addr in parsed_addresses if addr[1]]  # Extract just the email addresses
+                print(f"🔍 DEBUG: CC list from parsed addresses: {cc_list}")
             else:
                 cc_list = cc_emails
                 print(f"🔍 DEBUG: CC list (not string): {cc_list}")
