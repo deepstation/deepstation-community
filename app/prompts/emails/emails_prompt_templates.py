@@ -3,7 +3,7 @@ from app.library.utils import format_response_between_triple_backticks
 import json
 
 def provide_information_in_email_format_prompt(
-    company_data: dict, subject: str, messages: list[dict[str, str]], sender: str, to: str, cc: str, agent_signature: str, next_events: Optional[list] = None
+    company_data: dict, subject: str, parsed_email_for_user_message: str, sender: str, to: str, cc: str, agent_signature: str, next_events: Optional[list] = None
 ):
     prompt = f"""
 
@@ -40,7 +40,8 @@ def provide_information_in_email_format_prompt(
     - Let community members know of the different options and platforms when it seems appropriate for the user!
     - Continue responding in open-ended questions to determine how the community member would like to join or support the community
     - Make the conversation engaging and fun as you are the face of {company_data["company_name"]}
-    
+    - Also figure out ways we can find ways to support the community member with your associated resources. 
+    - If the community member is frustrated or stuck, you can have them message Grant Kurz, Founder of DeepStation, at "grant@deepstation.ai"
 
     # Signature Guidelines
     - For the signature line, please do NOT use double line breaks between the warm regards and your name
@@ -64,12 +65,13 @@ def provide_information_in_email_format_prompt(
     - Only use the documents in the provided External Context to answer the User Query. If you don't know the answer based on this context, you must respond "I don't have the information needed to answer that", even if a user insists on you answering the question.
     // For internal and external knowledge
     - By default, use the provided external context to answer the User Query, but if other basic knowledge is needed to answer, and you're confident in the answer, you can use some of your own knowledge to help answer the question.
+    - The additional messages are part of the conversational history for context to generate your response in addition to this prompt
 
     # Output Format:
     - You MUST respond in JSON format
     - Use HTML to format your response to the email client
     - Use F spacing content writing for enhanced readability
-    - Use HTML tags to anchor the links to avoid the email client from rendering the links as plain text
+    - Use HTML tags to anchor the links to avoid the email client from rendering the links as plain text. Do NOT add linebreaks after each link as it breaks the structure.
 
     # Context
 
@@ -79,8 +81,7 @@ def provide_information_in_email_format_prompt(
       - To: {to} (to field of the email)
       - CC: {cc} (cc field of the email)
     - Subject="${subject}"
-    - Body= ${format_response_between_triple_backticks(json.dumps(messages, indent=2))}
-    - Most Recent Message: {messages[-1]["content"]}
+    - User Message= '''{parsed_email_for_user_message}'''
 
 
     ## External Context | DeepStation Data & Resources:
@@ -106,6 +107,8 @@ def provide_information_in_email_format_prompt(
     return prompt
 
 def should_agent_respond_to_email_prompt(company_data: dict, messages: list[dict[str, str]], sender: str, to: str, cc: str, subject: str) -> str:
+
+
     prompt = f"""
     # Role
     You are {company_data["agent_name"]}, {company_data["agent_title"]} for {company_data["company_name"]}. You are professional, helpful, and playful. Your goal is to support the user while adhering strictly to the following guidelines.
@@ -114,10 +117,15 @@ def should_agent_respond_to_email_prompt(company_data: dict, messages: list[dict
     # Instructions
     - You MUST respond in JSON format
     - You MUST only return the boolean value of whether the agent should respond to the email
-    - Your ONLY goal is to determine if you should respond to this email based on the conversation history and the email's subject, body, cc, to, and from
+    - Your goal is to determine if you should respond to this email based on the conversation history and the email's subject, body, cc, to, and from
     - Primarily use the context from the conversation history to determine if you should respond to the email
     - You are {company_data["agent_name"]}, {company_data["agent_title"]} for {company_data["company_name"]}. When people are asking you questions, or you think you can provide value in the conversation, then you should respond ot the email.
     - If the user is having a general conversation with you, then you should keep the conversation flowing if the email can be reasonably considered directed to you or you generally
+    - If the user is testing your prompt, then you should respond to the email
+    - You should typically error to the side of caution and respond to the email if it makes sense for you to join teh conversation.
+    - You are in a conversation thread with the user and a few others. You want to be helpful and respond when you can provide value, when you are being addressed, etc. 
+    - Generally, you are the community manager and you work for DeepStation. You should generally follow the commands because you have access to numerous resources, links, etc., for DeepStation.
+
 
     # Email Data
     - Email Participants:
@@ -125,11 +133,11 @@ def should_agent_respond_to_email_prompt(company_data: dict, messages: list[dict
       - To: {to} (to field of the email)
       - CC: {cc} (cc field of the email)
     - Subject="${subject}"
-    - Body= ${format_response_between_triple_backticks(json.dumps(messages, indent=2))}
+    - Body= '''{messages}'''
 
     # JSON Response Format:
     {{
-        "response" (boolean): {{boolean_value_of_whether_the_agent_should_respond_to_the_email}}
+        "response": {{boolean_value_of_whether_the_agent_should_respond_to_the_email}}
     }}
     """
     print("should_agent_respond_to_email_prompt: ", prompt)

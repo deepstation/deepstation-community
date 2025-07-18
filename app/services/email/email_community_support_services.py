@@ -46,7 +46,7 @@ async def community_support_email_service(to: str, from_email: str, subject: str
 
     allowed_recipient = handle_allowed_recipients_and_cc_emails(to, headers_field)
 
-    client, lead, company_information, conversation, messages, conversation_repository, company_data, parsed_email_for_user_message, email_thread_ids_for_save, from_email_for_save, allowed_recipient_for_save = await get_client_lead_company_information_with_threading(allowed_recipient, email_thread_ids, from_email, text)
+    client, lead, company_information, conversation, messages, conversation_repository, company_data, parsed_email_for_user_message, email_thread_ids_for_save, from_email_for_save, allowed_recipient_for_save = await get_client_lead_company_information_with_threading(allowed_recipient, email_thread_ids, from_email, text, subject)
 
     # Should Maria Respond
     async def should_agent_respond_to_email(messages: list[dict[str, str]]) -> bool:
@@ -62,9 +62,22 @@ async def community_support_email_service(to: str, from_email: str, subject: str
         else:
             # If the user is not from Maria's email, then check the messages to see if they are talking to Maria or if the conversation is about someone else
             prompt = should_agent_respond_to_email_prompt(company_data, messages, sender, to, email_thread_ids["cc"], subject)
-            should_agent_response_json = await generate_ai_response(prompt, messages)
-            should_agent_response = should_agent_response_json["response"]
-            print("Agent should respond to email because prompt response is: ", should_agent_response)
+            
+            try:
+                should_agent_response_json = await generate_ai_response(prompt, messages)
+                # Validate the response format
+                if not isinstance(should_agent_response_json, dict) or "response" not in should_agent_response_json:
+                    print(f"Invalid should_agent_response format: {should_agent_response_json}")
+                    should_agent_response = True
+                    print("Defaulting to should_agent_response = True due to invalid format")
+                else:
+                    should_agent_response = should_agent_response_json["response"]
+                    print("Agent should respond to email because prompt response is: ", should_agent_response)
+            except Exception as e:
+                print(f"Error getting should_agent_response: {e}")
+                # Default to responding if we can't determine
+                should_agent_response = True
+                print("Defaulting to should_agent_response = True due to error")
 
         print("should_agent_response: ", should_agent_response)
 
@@ -76,21 +89,7 @@ async def community_support_email_service(to: str, from_email: str, subject: str
         print("Agent should not respond to email")
         return {"status": "success", "message": "No response sent"}
     
-    # Agent will respond - now save the user message
-    from app.library.emails.email_utils import save_user_message
-    
-    await save_user_message(
-        conversation_id=conversation.id,
-        message_id=email_thread_ids["message_id"],
-        in_reply_to=email_thread_ids["in_reply_to"],
-        references=email_thread_ids["references"],
-        content=parsed_email_for_user_message,
-        from_addr=from_email,
-        to_addr=allowed_recipient,
-        subject=subject,
-        email_date=None,
-    )
-    print("User message saved")
+
 
     agent_signature = f"""
         <p>
@@ -113,10 +112,18 @@ async def community_support_email_service(to: str, from_email: str, subject: str
 
     ## 3. Create a prompt for the AI to respond to the email
     prompt = provide_information_in_email_format_prompt(
-        company_data, subject, messages, sender, to, email_thread_ids["cc"], agent_signature, next_events
+        company_data, subject, parsed_email_for_user_message, sender, to, email_thread_ids["cc"], agent_signature, next_events
     )
 
-    ai_response_json = await generate_ai_response(prompt, messages)
+    try:
+        ai_response_json = await generate_ai_response(prompt, messages)
+        # Validate the response format
+        if not isinstance(ai_response_json, dict) or "response" not in ai_response_json:
+            print(f"Invalid AI response format: {ai_response_json}")
+            return {"status": "error", "message": "Invalid AI response format"}
+    except Exception as e:
+        print(f"Error generating AI response: {e}")
+        return {"status": "error", "message": f"Failed to generate AI response: {e}"}
 
     # print("ai_response_json: ", ai_response_json)
 
@@ -140,14 +147,24 @@ async def community_support_email_service(to: str, from_email: str, subject: str
     
     final_cc = ','.join(combined_cc) if combined_cc else None
     
-    assistant_message_id = await send_email_response(
-        sender,  # Reply to the original sender
-        subject,
-        ai_response_json["response"],
-        email_thread_ids["in_reply_to"],
-        email_thread_ids["references"],
-        final_cc,  # CC everyone else
-    )
+    print(f"🔍 DEBUG: final_cc type: {type(final_cc)}, value: {final_cc}")
+    print(f"🔍 DEBUG: sender: {sender}")
+    print(f"🔍 DEBUG: subject: {subject}")
+    print(f"🔍 DEBUG: in_reply_to: {email_thread_ids['in_reply_to']}")
+    print(f"🔍 DEBUG: references: {email_thread_ids['references']}")
+    
+    try:
+        assistant_message_id = await send_email_response(
+            sender,  # Reply to the original sender
+            subject,
+            ai_response_json["response"],
+            email_thread_ids["in_reply_to"],
+            email_thread_ids["references"],
+            final_cc,  # CC everyone else
+        )
+    except Exception as e:
+        print(f"Error sending email response: {e}")
+        return {"status": "error", "message": f"Failed to send email response: {e}"}
     
     # Build new references header for the assistant message
     new_references = []

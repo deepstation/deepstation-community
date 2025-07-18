@@ -39,14 +39,26 @@ def create_user_message(message: str) -> dict:
         }
 
 async def generate_ai_response(prompt: str, messages: list[dict[str, str]]) -> dict:
-    messages.append({"role": "user", "content": prompt})
+    # Make a copy to avoid modifying the original messages list
+    messages_copy = messages.copy()
+    messages_copy.append({"role": "system", "content": prompt})
 
     # Generate an AI response
-    ai_response = await chat_completion_request(messages, model="gpt-4.1")
+    ai_response = await chat_completion_request(messages_copy, model="gpt-4.1")
 
     if ai_response is None:
         raise HTTPException(status_code=500, detail="Failed to generate AI response")
 
-    ai_response_json = json.loads(ai_response)
+    print(f"🔍 DEBUG: Raw AI response: {ai_response}")
+    print(f"🔍 DEBUG: AI response type: {type(ai_response)}")
+    
+    try:
+        ai_response_json = json.loads(ai_response)
+        print(f"🔍 DEBUG: Parsed JSON: {ai_response_json}")
+        print(f"🔍 DEBUG: Parsed JSON type: {type(ai_response_json)}")
+    except json.JSONDecodeError as e:
+        print(f"🔍 DEBUG: JSON parsing failed: {e}")
+        print(f"🔍 DEBUG: Raw response that failed to parse: '{ai_response}'")
+        raise HTTPException(status_code=500, detail=f"Failed to parse AI response as JSON: {e}")
 
     return ai_response_json

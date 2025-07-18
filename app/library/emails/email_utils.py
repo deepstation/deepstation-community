@@ -24,6 +24,14 @@ async def send_email_response(
     import time
     import socket
     
+    print(f"🔍 DEBUG send_email_response params:")
+    print(f"  to_email: {to_email} (type: {type(to_email)})")
+    print(f"  subject: {subject} (type: {type(subject)})")
+    print(f"  body: {body} (type: {type(body)})")
+    print(f"  in_reply_to: {in_reply_to} (type: {type(in_reply_to)})")
+    print(f"  references: {references} (type: {type(references)})")
+    print(f"  cc_emails: {cc_emails} (type: {type(cc_emails)})")
+    
     try:
         # Generate a unique Message-ID for the outgoing email
         timestamp = int(time.time())
@@ -39,6 +47,12 @@ async def send_email_response(
         # print("in_reply_to: ", in_reply_to)
         # print("references: ", references)
 
+        print(f"🔍 DEBUG: Creating Mail object with:")
+        print(f"  from_email: {EMAIL_FROM}")
+        print(f"  to_emails: {to_email}")
+        print(f"  subject: {subject}")
+        print(f"  html_content: {body}")
+        
         message = Mail(
             from_email=EMAIL_FROM,
             to_emails=to_email,
@@ -46,17 +60,25 @@ async def send_email_response(
             html_content=body,  # Optional HTML content
         )
         
+        print(f"🔍 DEBUG: Mail object created successfully")
+        
         # Add CC if provided
         if cc_emails:
+            print(f"🔍 DEBUG: Processing CC emails: {cc_emails} (type: {type(cc_emails)})")
             # Handle multiple CC emails (comma-separated string)
             if isinstance(cc_emails, str):
                 cc_list = [email.strip() for email in cc_emails.split(',')]
+                print(f"🔍 DEBUG: CC list from string: {cc_list}")
             else:
                 cc_list = cc_emails
+                print(f"🔍 DEBUG: CC list (not string): {cc_list}")
             # Remove duplicates between to and cc
             cc_list = [email for email in cc_list if email != to_email]
+            print(f"🔍 DEBUG: Final CC list after duplicate removal: {cc_list}")
             if cc_list:  # Only add CC if there are emails left
+                print(f"🔍 DEBUG: Setting message.cc = {cc_list}")
                 message.cc = cc_list
+                print(f"🔍 DEBUG: message.cc set successfully")
         print("message: ", message)
         # -----------------------------------------------------------------
         #  Add the threading headers so clients know it's a reply.
@@ -279,7 +301,7 @@ async def save_user_message(
     email_date: Optional[str] = None,
 ):
     """
-    Save a user message to the conversation.
+    Save a user message to the conversation with deduplication.
     """
     from app.models.model import Message, MessageType
     
@@ -288,19 +310,29 @@ async def save_user_message(
     if references:
         refs = [r.strip('<>') for r in references.split() if r.strip()]
     
-    return await Message.create(
-        conversation_id=conversation_id,
-        content=content,
-        role="user",
-        message_type=MessageType.EMAIL,
-        message_id=message_id,
-        in_reply_to=in_reply_to,
-        references=refs,
-        from_addr=from_addr,
-        to_addr=to_addr,
-        subject=subject,
-        email_date=email_date,
-    )
+    try:
+        return await Message.create(
+            conversation_id=conversation_id,
+            content=content,
+            role="user",
+            message_type=MessageType.EMAIL,
+            message_id=message_id.strip('<>'),  # Ensure consistent format
+            in_reply_to=in_reply_to.strip('<>') if in_reply_to else None,
+            references=refs,
+            from_addr=from_addr,
+            to_addr=to_addr,
+            subject=subject,
+            email_date=email_date,
+        )
+    except Exception as e:
+        if "duplicate key value violates unique constraint" in str(e):
+            # Message already exists, find and return it
+            logger.info(f"Message {message_id} already exists, skipping save")
+            existing_message = await Message.filter(message_id=message_id.strip('<>')).first()
+            return existing_message
+        else:
+            # Re-raise other exceptions
+            raise
 
 async def touch_conversation(
     message_id: str,

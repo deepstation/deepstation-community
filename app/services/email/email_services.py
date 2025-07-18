@@ -29,7 +29,7 @@ async def process_email_for_user_message(text: str) -> dict:
 
     return parsed_email_for_user_message
 
-async def get_client_lead_company_information_with_threading(allowed_recipient: str, email_thread_ids: dict, from_email: str, text: str) -> tuple[Client, Lead, CompanyInformation, Conversation, list[dict[str, str]], ConversationsRepository, dict, str, dict, str, str]:
+async def get_client_lead_company_information_with_threading(allowed_recipient: str, email_thread_ids: dict, from_email: str, text: str, subject: str) -> tuple[Client, Lead, CompanyInformation, Conversation, list[dict[str, str]], ConversationsRepository, dict, str, dict, str, str]:
     """
     New implementation using robust email threading logic.
     """
@@ -91,6 +91,27 @@ async def get_client_lead_company_information_with_threading(allowed_recipient: 
     print("In reply to: ", email_thread_ids["in_reply_to"])
     print("References: ", email_thread_ids["references"])
     
+    # If the user is not from our bots email, then we should save the message 
+    if "maria@deepstation.ai" not in from_email.lower():
+        print("Agent should not respond to email because sender is from Maria's email")
+        should_agent_response = False
+
+        # Agent will respond - now save the user message
+        from app.library.emails.email_utils import save_user_message
+        
+        await save_user_message(
+            conversation_id=conversation.id,
+            message_id=email_thread_ids["message_id"],
+            in_reply_to=email_thread_ids["in_reply_to"],
+            references=email_thread_ids["references"],
+            content=parsed_email_for_user_message["response"],
+            from_addr=from_email,
+            to_addr=allowed_recipient,
+            subject=subject,
+            email_date=None,
+        )
+        print("User message saved")
+
     # Get conversation messages for context (existing messages only)
     messages = await conversation_repository.get_messages_by_conversation(conversation.id)
     # Limit to 15 messages for context
